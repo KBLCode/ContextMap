@@ -32,10 +32,8 @@ yarn-error.log*
 .env.local
 .env.*.local
 
-# Private documentation (keep docs/ public, but allow private subdirs)
-docs/private/
-docs/internal/
-docs/notes/
+# Documentation (private plans, notes, etc.)
+docs/
 
 # Test coverage
 coverage/
