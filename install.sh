@@ -15,6 +15,23 @@ echo "║            Token Usage Visualization                   ║"
 echo "╚════════════════════════════════════════════════════════╝"
 echo ""
 
+# Check dependencies
+missing=""
+for cmd in jq sqlite3 bc curl; do
+    if ! command -v "$cmd" &>/dev/null; then
+        missing="$missing $cmd"
+    fi
+done
+if [ -n "$missing" ]; then
+    echo "✗ Missing required dependencies:$missing"
+    echo ""
+    echo "  Install with:"
+    echo "    macOS:  brew install$missing"
+    echo "    Ubuntu: sudo apt install$missing"
+    echo ""
+    exit 1
+fi
+
 # Create directories
 mkdir -p "$CONFIG_DIR"
 mkdir -p "$COMMANDS_DIR"

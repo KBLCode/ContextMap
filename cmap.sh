@@ -141,6 +141,11 @@ sync_chats() {
                     cache_read=excluded.cache_read,
                     cache_write=excluded.cache_write;" 2>/dev/null
             
+            # Also insert to tokens table (for charts) - one aggregate record per session
+            sqlite3 "$DB" "DELETE FROM tokens WHERE session='$filename';" 2>/dev/null
+            sqlite3 "$DB" "INSERT INTO tokens(ts,session,input,output,cache_read,cache_write,ctx_pct,model) 
+                VALUES($last_ts,'$filename',$total_in,$total_out,$cache_read,$cache_create,0,'$model');" 2>/dev/null
+            
             # Mark as synced
             echo "$filename" >> "$synced_file"
         fi

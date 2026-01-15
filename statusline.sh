@@ -21,7 +21,18 @@ else
     IN=0 OUT=0 CREAD=0 CWRITE=0 TOTAL=0 PCT=0
 fi
 
-AVG_IP=3 AVG_OP=15
+# Model pricing ($/MTok)
+get_price() {
+    local model="$1" type="$2"
+    case "$model" in
+        *opus*)
+            case "$type" in input) echo "15" ;; output) echo "75" ;; esac ;;
+        *haiku*)
+            case "$type" in input) echo "0.80" ;; output) echo "4" ;; esac ;;
+        *)  # sonnet/default
+            case "$type" in input) echo "3" ;; output) echo "15" ;; esac ;;
+    esac
+}
 
 fmt() { 
     local n=$1
@@ -81,7 +92,8 @@ SESS_IN=0; SESS_OUT=0
 [ -f "$DB" ] && read _ SESS_IN SESS_OUT <<< $(sqlite3 -separator ' ' "$DB" "SELECT COUNT(*), COALESCE(SUM(input),0), COALESCE(SUM(output),0) FROM tokens WHERE session='$SESSION';" 2>/dev/null)
 SESS_IN=${SESS_IN:-0}; SESS_OUT=${SESS_OUT:-0}
 SESS_IN=$((SESS_IN + IN)); SESS_OUT=$((SESS_OUT + OUT))
-SESS_COST=$(echo "scale=2; ($SESS_IN * $AVG_IP + $SESS_OUT * $AVG_OP) / 1000000" | bc 2>/dev/null || echo "0")
+IP=$(get_price "$MODEL_ID" "input"); OP=$(get_price "$MODEL_ID" "output")
+SESS_COST=$(echo "scale=2; ($SESS_IN * $IP + $SESS_OUT * $OP) / 1000000" | bc 2>/dev/null || echo "0")
 
 # Context bar
 ctx_bar=""; filled=$(( (PCT * W + 50) / 100 )); [ $filled -gt $W ] && filled=$W
@@ -98,24 +110,26 @@ if [ "${CV_RECORD:-1}" = "1" ] && { [ $IN -gt 0 ] || [ $OUT -gt 0 ]; }; then
     # Create tables if needed
     if [ ! -f "$DB" ]; then
         sqlite3 "$DB" "CREATE TABLE IF NOT EXISTS tokens(id INTEGER PRIMARY KEY,ts INTEGER,session TEXT,input INTEGER,output INTEGER,cache_read INTEGER,cache_write INTEGER,ctx_pct INTEGER,model TEXT);" 2>/dev/null
-        sqlite3 "$DB" "CREATE TABLE IF NOT EXISTS chats(session TEXT PRIMARY KEY,title TEXT,model TEXT,ctx_size INTEGER,first_ts INTEGER,last_ts INTEGER,total_input INTEGER,total_output INTEGER);" 2>/dev/null
+        sqlite3 "$DB" "CREATE TABLE IF NOT EXISTS chats(session TEXT PRIMARY KEY,title TEXT,model TEXT,ctx_size INTEGER,first_ts INTEGER,last_ts INTEGER,total_input INTEGER,total_output INTEGER,cache_read INTEGER DEFAULT 0,cache_write INTEGER DEFAULT 0);" 2>/dev/null
     fi
     
     # Ensure chats table exists (for existing DBs)
-    sqlite3 "$DB" "CREATE TABLE IF NOT EXISTS chats(session TEXT PRIMARY KEY,title TEXT,model TEXT,ctx_size INTEGER,first_ts INTEGER,last_ts INTEGER,total_input INTEGER,total_output INTEGER);" 2>/dev/null
+    sqlite3 "$DB" "CREATE TABLE IF NOT EXISTS chats(session TEXT PRIMARY KEY,title TEXT,model TEXT,ctx_size INTEGER,first_ts INTEGER,last_ts INTEGER,total_input INTEGER,total_output INTEGER,cache_read INTEGER DEFAULT 0,cache_write INTEGER DEFAULT 0);" 2>/dev/null
     
     # Insert token record
     sqlite3 "$DB" "INSERT INTO tokens(ts,session,input,output,cache_read,cache_write,ctx_pct,model) VALUES($NOW,'$SESSION',$IN,$OUT,$CREAD,$CWRITE,$PCT,'$MODEL_ID');" 2>/dev/null
     
     # Upsert chat record
-    sqlite3 "$DB" "INSERT INTO chats(session,title,model,ctx_size,first_ts,last_ts,total_input,total_output) 
-        VALUES('$SESSION','','$MODEL_ID',$CTX_SIZE,$NOW,$NOW,$IN,$OUT)
+    sqlite3 "$DB" "INSERT INTO chats(session,title,model,ctx_size,first_ts,last_ts,total_input,total_output,cache_read,cache_write) 
+        VALUES('$SESSION','','$MODEL_ID',$CTX_SIZE,$NOW,$NOW,$IN,$OUT,$CREAD,$CWRITE)
         ON CONFLICT(session) DO UPDATE SET 
             model=CASE WHEN excluded.model != '' THEN excluded.model ELSE model END,
             ctx_size=CASE WHEN excluded.ctx_size > 0 THEN excluded.ctx_size ELSE ctx_size END,
             last_ts=excluded.last_ts,
             total_input=total_input+excluded.total_input,
-            total_output=total_output+excluded.total_output;" 2>/dev/null
+            total_output=total_output+excluded.total_output,
+            cache_read=cache_read+excluded.cache_read,
+            cache_write=cache_write+excluded.cache_write;" 2>/dev/null
 fi
 
 # Output - 3 compact lines
