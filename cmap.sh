@@ -3,6 +3,7 @@
 
 DB="${CV_DB:-$HOME/.config/context-viewer/tokens.db}"
 AVG_IP=3 AVG_OP=15
+W=68  # Inner width (between ║ chars)
 
 G=$'\033[32m' Y=$'\033[33m' R=$'\033[31m' C=$'\033[36m' M=$'\033[35m' D=$'\033[2m' B=$'\033[1m' X=$'\033[0m'
 
@@ -18,66 +19,77 @@ cost() {
     echo "scale=2; ($in * $AVG_IP + $out * $AVG_OP) / 1000000" | bc 2>/dev/null || echo "0"
 }
 
-# Braille chart - returns lines with proper box borders
-draw_braille() {
-    local height=$1 max_val=$2 color=$3 width=$4
-    shift 4
+# Print a line with exact width padding
+line() {
+    local content="$1"
+    local plain="${content//$'\033['[0-9]*m/}"  # Strip ANSI
+    plain="${plain//$'\033['[0-9]*;[0-9]*m/}"
+    local len=${#plain}
+    local pad=$((W - len))
+    [ $pad -lt 0 ] && pad=0
+    printf "║%s%*s║\n" "$content" "$pad" ""
+}
+
+# Braille chart row
+braille_row() {
+    local color=$1 max_val=$2 row=$3 height=$4 show_label=$5
+    shift 5
     local values=("$@")
     local n=${#values[@]}
-    
-    [ "$max_val" -eq 0 ] && max_val=1
-    
     local max_dots=$((height * 4))
-    local scaled=()
-    for v in "${values[@]}"; do
-        if [ "$v" -eq 0 ]; then
-            scaled+=(0)
-        else
-            local s=$(( (v * max_dots + max_val - 1) / max_val ))
-            [ $s -gt $max_dots ] && s=$max_dots
-            [ $s -lt 1 ] && s=1
-            scaled+=($s)
-        fi
-    done
     
     local left_dots=(64 4 2 1)
     local right_dots=(128 32 16 8)
-    local chart_width=$(( (n + 1) / 2 ))
-    local pad=$((width - chart_width - 8))
-    [ $pad -lt 0 ] && pad=0
     
-    for ((row=height-1; row>=0; row--)); do
-        printf "║ "
-        local line=""
+    local chart=""
+    for ((col=0; col<n; col+=2)); do
+        local v1=${values[$col]:-0}
+        local v2=${values[$((col+1))]:-$v1}
         
-        for ((col=0; col<n; col+=2)); do
-            local v1=${scaled[$col]:-0}
-            local v2=${scaled[$((col+1))]:-$v1}
-            local code=$((0x2800))
-            
-            for ((d=0; d<4; d++)); do
-                local dot_pos=$((row * 4 + d + 1))
-                [ $v1 -ge $dot_pos ] && code=$((code + ${left_dots[$d]}))
-                [ $v2 -ge $dot_pos ] && code=$((code + ${right_dots[$d]}))
-            done
-            
-            line+=$(printf "\\$(printf '%03o' $((code >> 12 | 0xE0)))\\$(printf '%03o' $(((code >> 6 & 0x3F) | 0x80)))\\$(printf '%03o' $((code & 0x3F | 0x80)))")
+        # Scale values
+        local s1=0 s2=0
+        [ $v1 -gt 0 ] && s1=$(( (v1 * max_dots + max_val - 1) / max_val )) && [ $s1 -gt $max_dots ] && s1=$max_dots
+        [ $v2 -gt 0 ] && s2=$(( (v2 * max_dots + max_val - 1) / max_val )) && [ $s2 -gt $max_dots ] && s2=$max_dots
+        
+        local code=$((0x2800))
+        for ((d=0; d<4; d++)); do
+            local dot_pos=$((row * 4 + d + 1))
+            [ $s1 -ge $dot_pos ] && code=$((code + ${left_dots[$d]}))
+            [ $s2 -ge $dot_pos ] && code=$((code + ${right_dots[$d]}))
         done
         
-        printf "${color}%s${X}" "$line"
+        chart+=$(printf "\\$(printf '%03o' $((code >> 12 | 0xE0)))\\$(printf '%03o' $(((code >> 6 & 0x3F) | 0x80)))\\$(printf '%03o' $((code & 0x3F | 0x80)))")
+    done
+    
+    local chart_w=$(( (n + 1) / 2 ))
+    if [ "$show_label" = "1" ]; then
+        local label=" $(fmt $max_val)"
+        local pad=$((W - chart_w - ${#label} - 1))
+        printf "║ ${color}%s${X}${D}%s${X}%*s║\n" "$chart" "$label" "$pad" ""
+    else
+        local pad=$((W - chart_w - 1))
+        printf "║ ${color}%s${X}%*s║\n" "$chart" "$pad" ""
+    fi
+}
+
+draw_chart() {
+    local height=$1 max_val=$2 color=$3
+    shift 3
+    local values=("$@")
+    [ "$max_val" -eq 0 ] && max_val=1
+    for ((row=height-1; row>=0; row--)); do
         if [ $row -eq $((height-1)) ]; then
-            printf " ${D}%s${X}" "$(fmt $max_val)"
-            printf "%*s║\n" $((pad)) ""
+            braille_row "$color" "$max_val" "$row" "$height" 1 "${values[@]}"
         else
-            printf "%*s║\n" $((pad + 6)) ""
+            braille_row "$color" "$max_val" "$row" "$height" 0 "${values[@]}"
         fi
     done
 }
 
 if [ ! -f "$DB" ]; then
-    echo "╔══════════════════════════════════════════════════════════════╗"
-    echo "║  No data yet. Use Claude Code to generate token stats.      ║"
-    echo "╚══════════════════════════════════════════════════════════════╝"
+    echo "╔══════════════════════════════════════════════════════════════════════╗"
+    echo "║  No data yet. Use Claude Code to generate token stats.              ║"
+    echo "╚══════════════════════════════════════════════════════════════════════╝"
     exit 0
 fi
 
@@ -134,72 +146,70 @@ while read -r bucket total; do
 done <<< "$(sqlite3 -separator ' ' "$DB" "SELECT (($NOW - ts) / 21600) as bucket, SUM(input)+SUM(output) FROM tokens WHERE ts >= $D30 GROUP BY bucket;" 2>/dev/null)"
 MAX_MONTH=1; for v in "${MONTH_TOTAL[@]}"; do [ "$v" -gt "$MAX_MONTH" ] && MAX_MONTH=$v; done
 
-W=66
+# ════════════════════════════════════════════════════════════════════════
+# OUTPUT - Fixed width box (70 chars total = ║ + 68 inner + ║)
+# ════════════════════════════════════════════════════════════════════════
 
-# ═══════════════════════════════════════════════════════════════════
-# OUTPUT
-# ═══════════════════════════════════════════════════════════════════
-
-echo "╔══════════════════════════════════════════════════════════════════╗"
-echo "║                        ${B}◆ CONTEXT MAP ◆${X}                          ║"
-echo "╠══════════════════════════════════════════════════════════════════╣"
-printf "║ ${B}TODAY${X}  ${B}%4s${X} msgs  ${C}▲ %7s${X}  ${M}▼ %7s${X}  ${G}◆ \$%-6s${X}        ║\n" "$H24_MSGS" "$(fmt $H24_IN)" "$(fmt $H24_OUT)" "$H24_COST"
-echo "╠═════════════╤════════╤════════════╤════════════╤════════════════╣"
-echo "║ Period      │  Msgs  │   Input    │   Output   │      Cost      ║"
-echo "╟─────────────┼────────┼────────────┼────────────┼────────────────╢"
-printf "║ 1 hour      │ %6s │ ${C}%10s${X} │ ${M}%10s${X} │ ${G}%14s${X} ║\n" "$H1_MSGS" "$(fmt $H1_IN)" "$(fmt $H1_OUT)" "\$$H1_COST"
-printf "║ 6 hours     │ %6s │ ${C}%10s${X} │ ${M}%10s${X} │ ${G}%14s${X} ║\n" "$H6_MSGS" "$(fmt $H6_IN)" "$(fmt $H6_OUT)" "\$$H6_COST"
-printf "║ 24 hours    │ %6s │ ${C}%10s${X} │ ${M}%10s${X} │ ${G}%14s${X} ║\n" "$H24_MSGS" "$(fmt $H24_IN)" "$(fmt $H24_OUT)" "\$$H24_COST"
-printf "║ 7 days      │ %6s │ ${C}%10s${X} │ ${M}%10s${X} │ ${G}%14s${X} ║\n" "$D7_MSGS" "$(fmt $D7_IN)" "$(fmt $D7_OUT)" "\$$D7_COST"
-printf "║ 30 days     │ %6s │ ${C}%10s${X} │ ${M}%10s${X} │ ${G}%14s${X} ║\n" "$D30_MSGS" "$(fmt $D30_IN)" "$(fmt $D30_OUT)" "\$$D30_COST"
-echo "╟─────────────┼────────┼────────────┼────────────┼────────────────╢"
-printf "║ ${B}ALL TIME${X}    │ ${B}%6s${X} │ ${C}${B}%10s${X} │ ${M}${B}%10s${X} │ ${G}${B}%14s${X} ║\n" "$ALL_MSGS" "$(fmt $ALL_IN)" "$(fmt $ALL_OUT)" "\$$ALL_COST"
-echo "╠═════════════╧════════╧════════════╧════════════╧════════════════╣"
-echo "║ ${B}1 HOUR${X} ${D}(1-min intervals)${X}                                        ║"
-draw_braille 4 $MAX_MIN1 "$C" $W "${MIN1_TOTAL[@]}"
-echo "║ ${D}◀─── 60 min ago ──────────────────────────────────── now ───▶${X} ║"
-echo "╟────────────────────────────────────────────────────────────────╢"
-echo "║ ${B}24 HOURS${X} ${D}(15-min intervals)${X}                                      ║"
-draw_braille 4 $MAX_MIN15 "$C" $W "${MIN15_TOTAL[@]}"
-echo "║ ${D}◀─── 24 hours ago ────────────────────────────────── now ───▶${X} ║"
-echo "╟────────────────────────────────────────────────────────────────╢"
-echo "║ ${B}7 DAYS${X} ${D}(2-hour intervals)${X}                                        ║"
-draw_braille 4 $MAX_WEEK "$Y" $W "${WEEK_TOTAL[@]}"
-printf "║ ${D}%-6s%-6s%-6s%-6s%-6s%-6s%-6s${X}                       ║\n" "${DAY_LABELS[0]}" "${DAY_LABELS[1]}" "${DAY_LABELS[2]}" "${DAY_LABELS[3]}" "${DAY_LABELS[4]}" "${DAY_LABELS[5]}" "${DAY_LABELS[6]}"
-echo "╟────────────────────────────────────────────────────────────────╢"
-echo "║ ${B}30 DAYS${X} ${D}(6-hour intervals)${X}                                       ║"
-draw_braille 4 $MAX_MONTH "$M" $W "${MONTH_TOTAL[@]}"
-echo "║ ${D}◀─── 30 days ago ─────────────────────────────────── now ───▶${X} ║"
-echo "╠════════════════════════════════════════════════════════════════╣"
+echo "╔══════════════════════════════════════════════════════════════════════╗"
+echo "║                          ${B}◆ CONTEXT MAP ◆${X}                            ║"
+echo "╠══════════════════════════════════════════════════════════════════════╣"
+printf "║  ${B}TODAY${X}  ${B}%4s${X} msgs   ${C}▲ %7s${X}   ${M}▼ %7s${X}   ${G}◆ \$%-8s${X}       ║\n" "$H24_MSGS" "$(fmt $H24_IN)" "$(fmt $H24_OUT)" "$H24_COST"
+echo "╠══════════════╤════════╤════════════╤════════════╤══════════════════╣"
+echo "║ Period       │  Msgs  │   Input    │   Output   │       Cost       ║"
+echo "╟──────────────┼────────┼────────────┼────────────┼──────────────────╢"
+printf "║ 1 hour       │ %6s │ ${C}%10s${X} │ ${M}%10s${X} │ ${G}%16s${X} ║\n" "$H1_MSGS" "$(fmt $H1_IN)" "$(fmt $H1_OUT)" "\$$H1_COST"
+printf "║ 6 hours      │ %6s │ ${C}%10s${X} │ ${M}%10s${X} │ ${G}%16s${X} ║\n" "$H6_MSGS" "$(fmt $H6_IN)" "$(fmt $H6_OUT)" "\$$H6_COST"
+printf "║ 24 hours     │ %6s │ ${C}%10s${X} │ ${M}%10s${X} │ ${G}%16s${X} ║\n" "$H24_MSGS" "$(fmt $H24_IN)" "$(fmt $H24_OUT)" "\$$H24_COST"
+printf "║ 7 days       │ %6s │ ${C}%10s${X} │ ${M}%10s${X} │ ${G}%16s${X} ║\n" "$D7_MSGS" "$(fmt $D7_IN)" "$(fmt $D7_OUT)" "\$$D7_COST"
+printf "║ 30 days      │ %6s │ ${C}%10s${X} │ ${M}%10s${X} │ ${G}%16s${X} ║\n" "$D30_MSGS" "$(fmt $D30_IN)" "$(fmt $D30_OUT)" "\$$D30_COST"
+echo "╟──────────────┼────────┼────────────┼────────────┼──────────────────╢"
+printf "║ ${B}ALL TIME${X}     │ ${B}%6s${X} │ ${C}${B}%10s${X} │ ${M}${B}%10s${X} │ ${G}${B}%16s${X} ║\n" "$ALL_MSGS" "$(fmt $ALL_IN)" "$(fmt $ALL_OUT)" "\$$ALL_COST"
+echo "╠══════════════╧════════╧════════════╧════════════╧══════════════════╣"
+echo "║ ${B}1 HOUR${X} ${D}(1-min intervals)${X}                                          ║"
+draw_chart 4 $MAX_MIN1 "$C" "${MIN1_TOTAL[@]}"
+echo "║ ${D}◀─── 60 min ago ────────────────────────────────────── now ───▶${X}   ║"
+echo "╟──────────────────────────────────────────────────────────────────────╢"
+echo "║ ${B}24 HOURS${X} ${D}(15-min intervals)${X}                                        ║"
+draw_chart 4 $MAX_MIN15 "$C" "${MIN15_TOTAL[@]}"
+echo "║ ${D}◀─── 24 hours ago ──────────────────────────────────── now ───▶${X}   ║"
+echo "╟──────────────────────────────────────────────────────────────────────╢"
+echo "║ ${B}7 DAYS${X} ${D}(2-hour intervals)${X}                                          ║"
+draw_chart 4 $MAX_WEEK "$Y" "${WEEK_TOTAL[@]}"
+printf "║  ${D}%-8s %-8s %-8s %-8s %-8s %-8s %-8s${X}      ║\n" "${DAY_LABELS[0]}" "${DAY_LABELS[1]}" "${DAY_LABELS[2]}" "${DAY_LABELS[3]}" "${DAY_LABELS[4]}" "${DAY_LABELS[5]}" "${DAY_LABELS[6]}"
+echo "╟──────────────────────────────────────────────────────────────────────╢"
+echo "║ ${B}30 DAYS${X} ${D}(6-hour intervals)${X}                                         ║"
+draw_chart 4 $MAX_MONTH "$M" "${MONTH_TOTAL[@]}"
+echo "║ ${D}◀─── 30 days ago ───────────────────────────────────── now ───▶${X}   ║"
+echo "╠══════════════════════════════════════════════════════════════════════╣"
 
 # Models
 MODEL_STATS=$(sqlite3 -separator '|' "$DB" "SELECT model, COUNT(*), SUM(input), SUM(output) FROM tokens WHERE ts >= $H24 GROUP BY model ORDER BY SUM(input)+SUM(output) DESC LIMIT 3;" 2>/dev/null)
 if [ -n "$MODEL_STATS" ]; then
-    echo "║ ${B}MODELS${X} ${D}(24h)${X}                                                    ║"
+    echo "║ ${B}MODELS${X} ${D}(24h)${X}                                                      ║"
     while IFS='|' read -r model count inp outp; do
         [ -z "$model" ] && continue
         model_short="${model##*-}"
         [ ${#model_short} -gt 12 ] && model_short="${model_short:0:12}"
         mcost=$(cost $inp $outp)
-        printf "║  %-12s  %4s msgs  ${C}%7s${X} ▲  ${M}%7s${X} ▼  ${G}\$%-6s${X}   ║\n" "$model_short" "$count" "$(fmt $inp)" "$(fmt $outp)" "$mcost"
+        printf "║   %-12s  %5s msgs   ${C}%8s${X} ▲   ${M}%8s${X} ▼   ${G}\$%-7s${X}  ║\n" "$model_short" "$count" "$(fmt $inp)" "$(fmt $outp)" "$mcost"
     done <<< "$MODEL_STATS"
-    echo "╟────────────────────────────────────────────────────────────────╢"
+    echo "╟──────────────────────────────────────────────────────────────────────╢"
 fi
 
 # Sessions
 SESSIONS=$(sqlite3 -separator '|' "$DB" "SELECT session, COUNT(*), SUM(input), SUM(output), MIN(ts), MAX(ts) FROM tokens GROUP BY session ORDER BY MAX(ts) DESC LIMIT 3;" 2>/dev/null)
 if [ -n "$SESSIONS" ]; then
-    echo "║ ${B}RECENT SESSIONS${X}                                                ║"
+    echo "║ ${B}RECENT SESSIONS${X}                                                    ║"
     while IFS='|' read -r sess count inp outp min_ts max_ts; do
         [ -z "$sess" ] && continue
         scost=$(cost $inp $outp)
         duration=$((max_ts - min_ts))
         [ $duration -lt 60 ] && dur="${duration}s" || { [ $duration -lt 3600 ] && dur="$((duration/60))m" || dur="$((duration/3600))h$((duration%3600/60))m"; }
-        printf "║  %-10s  %4s msgs  ${C}%7s${X} ▲  ${M}%7s${X} ▼  ${G}\$%-5s${X} %5s ║\n" "$sess" "$count" "$(fmt $inp)" "$(fmt $outp)" "$scost" "$dur"
+        printf "║   %-10s  %5s msgs   ${C}%8s${X} ▲   ${M}%8s${X} ▼   ${G}\$%-6s${X} %5s ║\n" "$sess" "$count" "$(fmt $inp)" "$(fmt $outp)" "$scost" "$dur"
     done <<< "$SESSIONS"
-    echo "╟────────────────────────────────────────────────────────────────╢"
+    echo "╟──────────────────────────────────────────────────────────────────────╢"
 fi
 
 # Footer
-printf "║ ${D}%-66s${X} ║\n" "$(date '+%Y-%m-%d %H:%M:%S') │ \$$AVG_IP/M in, \$$AVG_OP/M out"
-echo "╚══════════════════════════════════════════════════════════════════╝"
+printf "║  ${D}%-66s${X}  ║\n" "$(date '+%Y-%m-%d %H:%M:%S')  │  \$$AVG_IP/M in, \$$AVG_OP/M out"
+echo "╚══════════════════════════════════════════════════════════════════════╝"
