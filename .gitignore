@@ -5,6 +5,11 @@ node_modules/
 # Build output
 dist/
 
+# Runtime data (24-hour history database)
+data/
+*.db
+*.sqlite
+
 # IDE
 .idea/
 .vscode/
