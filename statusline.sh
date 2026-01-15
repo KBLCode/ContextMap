@@ -21,16 +21,16 @@ else
     IN=0 OUT=0 CREAD=0 CWRITE=0 TOTAL=0 PCT=0
 fi
 
-# Model pricing ($/MTok)
+# Model pricing ($/MTok) - ALL 4 token types
 get_price() {
     local model="$1" type="$2"
     case "$model" in
         *opus*)
-            case "$type" in input) echo "15" ;; output) echo "75" ;; esac ;;
+            case "$type" in input) echo "15" ;; cache_write) echo "18.75" ;; cache_read) echo "1.50" ;; output) echo "75" ;; esac ;;
         *haiku*)
-            case "$type" in input) echo "0.80" ;; output) echo "4" ;; esac ;;
+            case "$type" in input) echo "0.80" ;; cache_write) echo "1.00" ;; cache_read) echo "0.08" ;; output) echo "4" ;; esac ;;
         *)  # sonnet/default
-            case "$type" in input) echo "3" ;; output) echo "15" ;; esac ;;
+            case "$type" in input) echo "3" ;; cache_write) echo "3.75" ;; cache_read) echo "0.30" ;; output) echo "15" ;; esac ;;
     esac
 }
 
@@ -87,13 +87,14 @@ for ((i=0; i<W; i++)); do
     fi
 done
 
-# Session stats
-SESS_IN=0; SESS_OUT=0
-[ -f "$DB" ] && read _ SESS_IN SESS_OUT <<< $(sqlite3 -separator ' ' "$DB" "SELECT COUNT(*), COALESCE(SUM(input),0), COALESCE(SUM(output),0) FROM tokens WHERE session='$SESSION';" 2>/dev/null)
-SESS_IN=${SESS_IN:-0}; SESS_OUT=${SESS_OUT:-0}
-SESS_IN=$((SESS_IN + IN)); SESS_OUT=$((SESS_OUT + OUT))
-IP=$(get_price "$MODEL_ID" "input"); OP=$(get_price "$MODEL_ID" "output")
-SESS_COST=$(echo "scale=2; ($SESS_IN * $IP + $SESS_OUT * $OP) / 1000000" | bc 2>/dev/null || echo "0")
+# Session stats - ALL 4 token types
+SESS_IN=0; SESS_OUT=0; SESS_CREAD=0; SESS_CWRITE=0
+[ -f "$DB" ] && read _ SESS_IN SESS_OUT SESS_CREAD SESS_CWRITE <<< $(sqlite3 -separator ' ' "$DB" "SELECT COUNT(*), COALESCE(SUM(input),0), COALESCE(SUM(output),0), COALESCE(SUM(cache_read),0), COALESCE(SUM(cache_write),0) FROM tokens WHERE session='$SESSION';" 2>/dev/null)
+SESS_IN=${SESS_IN:-0}; SESS_OUT=${SESS_OUT:-0}; SESS_CREAD=${SESS_CREAD:-0}; SESS_CWRITE=${SESS_CWRITE:-0}
+SESS_IN=$((SESS_IN + IN)); SESS_OUT=$((SESS_OUT + OUT)); SESS_CREAD=$((SESS_CREAD + CREAD)); SESS_CWRITE=$((SESS_CWRITE + CWRITE))
+PI=$(get_price "$MODEL_ID" "input"); PO=$(get_price "$MODEL_ID" "output")
+PCR=$(get_price "$MODEL_ID" "cache_read"); PCW=$(get_price "$MODEL_ID" "cache_write")
+SESS_COST=$(echo "scale=2; ($SESS_IN * $PI + $SESS_OUT * $PO + $SESS_CREAD * $PCR + $SESS_CWRITE * $PCW) / 1000000" | bc 2>/dev/null || echo "0")
 
 # Context bar
 ctx_bar=""; filled=$(( (PCT * W + 50) / 100 )); [ $filled -gt $W ] && filled=$W
