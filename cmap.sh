@@ -534,10 +534,10 @@ read ALL_MSGS ALL_IN ALL_OUT <<< $(sqlite3 -separator ' ' "$DB" "SELECT COUNT(*)
 
 calc_period_cost() {
     local total=0
-    while IFS='|' read -r model inp outp; do
+    while IFS='|' read -r model inp outp cread cwrite; do
         [ -z "$model" ] && continue
-        total=$(echo "$total + $(cost_model "$inp" "$outp" "$model")" | bc 2>/dev/null)
-    done <<< "$(sqlite3 -separator '|' "$DB" "SELECT model, SUM(input), SUM(output) FROM tokens WHERE ts >= $1 GROUP BY model;" 2>/dev/null)"
+        total=$(echo "$total + $(cost_full "$inp" "$outp" "$cread" "$cwrite" "$model")" | bc 2>/dev/null)
+    done <<< "$(sqlite3 -separator '|' "$DB" "SELECT model, SUM(input), SUM(output), SUM(COALESCE(cache_read,0)), SUM(COALESCE(cache_write,0)) FROM tokens WHERE ts >= $1 GROUP BY model;" 2>/dev/null)"
     printf "%.2f" "${total:-0}"
 }
 
@@ -545,15 +545,15 @@ H1_COST=$(calc_period_cost $H1); H6_COST=$(calc_period_cost $H6); H24_COST=$(cal
 D7_COST=$(calc_period_cost $D7); D30_COST=$(calc_period_cost $D30); ALL_COST=$(calc_period_cost 0)
 
 OPUS_IN=0; OPUS_OUT=0; OPUS_COST="0"; SONNET_IN=0; SONNET_OUT=0; SONNET_COST="0"; HAIKU_IN=0; HAIKU_OUT=0; HAIKU_COST="0"
-while IFS='|' read -r model inp outp; do
+while IFS='|' read -r model inp outp cread cwrite; do
     [ -z "$model" ] && continue
-    c=$(cost_model "$inp" "$outp" "$model")
+    c=$(cost_full "$inp" "$outp" "$cread" "$cwrite" "$model")
     case "$(model_family "$model")" in
         opus) OPUS_IN=$((OPUS_IN + inp)); OPUS_OUT=$((OPUS_OUT + outp)); OPUS_COST=$(echo "$OPUS_COST + $c" | bc) ;;
         sonnet) SONNET_IN=$((SONNET_IN + inp)); SONNET_OUT=$((SONNET_OUT + outp)); SONNET_COST=$(echo "$SONNET_COST + $c" | bc) ;;
         haiku) HAIKU_IN=$((HAIKU_IN + inp)); HAIKU_OUT=$((HAIKU_OUT + outp)); HAIKU_COST=$(echo "$HAIKU_COST + $c" | bc) ;;
     esac
-done <<< "$(sqlite3 -separator '|' "$DB" "SELECT model, SUM(input), SUM(output) FROM tokens GROUP BY model;" 2>/dev/null)"
+done <<< "$(sqlite3 -separator '|' "$DB" "SELECT model, SUM(input), SUM(output), SUM(COALESCE(cache_read,0)), SUM(COALESCE(cache_write,0)) FROM tokens GROUP BY model;" 2>/dev/null)"
 
 # Chart data - 1 HOUR (30 points, 2-min intervals)
 declare -a MIN1_IN MIN1_OUT; for i in {0..29}; do MIN1_IN[$i]=0; MIN1_OUT[$i]=0; done
@@ -641,11 +641,11 @@ echo "$BOX_MID"
 # Sessions
 line " ${B}SESSIONS${X}"
 echo "$BOX_SEP"
-sqlite3 -separator '|' "$DB" "SELECT session, COUNT(*), SUM(input), SUM(output), MIN(ts), MAX(ts), model FROM tokens GROUP BY session ORDER BY MAX(ts) DESC LIMIT 3;" 2>/dev/null | while IFS='|' read -r sess count inp outp min_ts max_ts model; do
+sqlite3 -separator '|' "$DB" "SELECT session, COUNT(*), SUM(input), SUM(output), SUM(COALESCE(cache_read,0)), SUM(COALESCE(cache_write,0)), MIN(ts), MAX(ts), model FROM tokens GROUP BY session ORDER BY MAX(ts) DESC LIMIT 3;" 2>/dev/null | while IFS='|' read -r sess count inp outp cread cwrite min_ts max_ts model; do
     [ -z "$sess" ] && continue
     dur=$((max_ts - min_ts))
     [ $dur -lt 60 ] && d="${dur}s" || { [ $dur -lt 3600 ] && d="$((dur/60))m" || d="$((dur/3600))h$((dur%3600/60))m"; }
-    c=$(cost_model "$inp" "$outp" "$model")
+    c=$(cost_full "$inp" "$outp" "$cread" "$cwrite" "$model")
     line " $(printf '%-6s' "${sess:0:6}") $(printf '%3s' "$count")msg ${C}$(printf '%5s' "$(fmt $inp)")${X}/${M}$(printf '%5s' "$(fmt $outp)")${X} ${G}\$$(printf '%-5s' "$c")${X} $(printf '%4s' "$d")"
 done
 echo "$BOX_SEP"
