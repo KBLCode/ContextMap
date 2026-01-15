@@ -249,6 +249,12 @@ init_backfill() {
                 cache_read=excluded.cache_read,
                 cache_write=excluded.cache_write;" 2>/dev/null
         
+        # Also insert into tokens table for chart display (one record per session at last_ts)
+        # Delete any existing token for this session first to avoid duplicates on re-init
+        sqlite3 "$DB" "DELETE FROM tokens WHERE session='$filename';" 2>/dev/null
+        sqlite3 "$DB" "INSERT INTO tokens(ts,session,input,output,cache_read,cache_write,ctx_pct,model)
+            VALUES($last_epoch,'$filename',$inp_tokens,$out_tokens,$cache_read,$cache_create,0,'$model');" 2>/dev/null
+        
         imported=$((imported + 1))
         
         # Progress display - show all token types
