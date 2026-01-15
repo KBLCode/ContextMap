@@ -17,7 +17,8 @@ Real-time token usage visualization for OpenCode and Claude Code.
 - DNA helix-style visualization of input vs output tokens
 - Braille characters for high-density display
 - Real-time updates during streaming
-- Context window usage bar
+- Context window usage bar (resets on compaction)
+- `/cmap` command for 24-hour historical view
 - Works with both OpenCode and Claude Code
 
 ## Installation
@@ -25,15 +26,30 @@ Real-time token usage visualization for OpenCode and Claude Code.
 ### OpenCode
 
 ```bash
-# Copy plugin to OpenCode plugins directory
-cp -r dist/opencode ~/.config/opencode/plugins/context-viewer
+# Copy the plugin folder
+cp -r packages/opencode/plugin ~/.config/opencode/plugins/context-viewer
 ```
 
 ### Claude Code
 
 ```bash
-# Copy plugin to Claude Code plugins directory
-cp -r dist/claude-code ~/.claude-plugin/context-viewer
+# Copy to your project
+cp -r packages/claude-code/context-viewer .claude-plugin/
+
+# Or install globally
+cp -r packages/claude-code/context-viewer ~/.claude/context-viewer
+```
+
+## Usage
+
+### Real-time Widget
+The token widget displays automatically during conversations.
+
+### `/cmap` Command
+View 24-hour token usage history:
+```
+/cmap        # Show last 24 hours
+/cmap 12     # Show last 12 hours
 ```
 
 ## How It Works
@@ -41,7 +57,18 @@ cp -r dist/claude-code ~/.claude-plugin/context-viewer
 - **Top line**: Input tokens (peaks pointing up)
 - **Center line**: Baseline separator
 - **Bottom line**: Output tokens (peaks pointing down)
-- **Context bar**: Shows how much of the context window is used
+- **Context bar**: Shows context window usage (resets on compaction)
+
+## Project Structure
+
+```
+ContextViewer/
+├── core/                    # Shared library (bundled into packages)
+├── packages/
+│   ├── opencode/           # OpenCode plugin
+│   └── claude-code/        # Claude Code plugin
+└── docs/                   # Documentation
+```
 
 ## Development
 
@@ -49,11 +76,11 @@ cp -r dist/claude-code ~/.claude-plugin/context-viewer
 # Install dependencies
 bun install
 
-# Build
-bun run build
+# Build all packages
+./scripts/build.sh
 
-# Test
-bun test
+# Build specific package
+cd packages/opencode && bun run build
 ```
 
 ## License
