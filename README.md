@@ -20,7 +20,7 @@ Sonnet 4 $14.91 1M↑ 626k↓
 ## Quick Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/cianoc/ContextViewer/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/KBLCode/ContextViewer/main/install.sh | bash
 ```
 
 Or manually:
@@ -31,9 +31,9 @@ mkdir -p ~/.config/context-viewer
 
 # Download scripts
 curl -o ~/.config/context-viewer/statusline.sh \
-  https://raw.githubusercontent.com/cianoc/ContextViewer/main/statusline.sh
+  https://raw.githubusercontent.com/KBLCode/ContextViewer/main/statusline.sh
 curl -o ~/.config/context-viewer/cmap.sh \
-  https://raw.githubusercontent.com/cianoc/ContextViewer/main/cmap.sh
+  https://raw.githubusercontent.com/KBLCode/ContextViewer/main/cmap.sh
 
 # Make executable
 chmod +x ~/.config/context-viewer/*.sh

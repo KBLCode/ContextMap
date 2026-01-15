@@ -3,7 +3,7 @@
 
 set -e
 
-REPO="https://raw.githubusercontent.com/cianoc/ContextViewer/main"
+REPO="https://raw.githubusercontent.com/KBLCode/ContextViewer/main"
 DEST="$HOME/.config/context-viewer"
 
 echo "Installing ContextViewer for Claude Code..."
