@@ -70,7 +70,7 @@ curl -fsSL https://raw.githubusercontent.com/KBLCode/ContextMap/main/install.sh 
 This will:
 1. Download scripts to `~/.config/contextmap/`
 2. Install the `/cmap` slash command
-3. Configure Claude Code's statusline
+3. Configure Claude Code's statusline for real-time tracking
 4. Import all your historical chat data
 
 ## Manual Install
@@ -92,17 +92,58 @@ chmod +x ~/.config/contextmap/*.sh
 
 # Import historical data
 ~/.config/contextmap/cmap.sh --init
+```
 
-# Configure Claude Code (add to ~/.claude/settings.json)
-cat >> ~/.claude/settings.json << 'EOF'
+## Statusline Setup (Real-Time Tracking)
+
+The statusline enables **real-time token tracking** on every Claude response. Without it, you can still use `/cmap --init` to import historical data, but you won't get live per-message tracking.
+
+### Enable the Statusline
+
+Add this to your `~/.claude/settings.json`:
+
+```json
 {
   "statusLine": {
     "type": "command",
     "command": "~/.config/contextmap/statusline.sh"
   }
 }
-EOF
 ```
+
+Or if you already have settings, add the `statusLine` key:
+
+```json
+{
+  "existingKey": "existingValue",
+  "statusLine": {
+    "type": "command",
+    "command": "~/.config/contextmap/statusline.sh"
+  }
+}
+```
+
+### What the Statusline Does
+
+When enabled, Claude Code calls the statusline script after every response. The script:
+
+1. **Displays live stats** in the Claude Code footer:
+   ```
+   Claude Sonnet 4 $0.79 51k↑ 42k↓
+   ▁▁▁▅▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁1k↑ ▁▁▁▄▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▁▃▃▃▃▁▁▃▃▁▁800↓
+   ████████████░░░░░░░░░░░░░░░░░░ 30% 61k/200k
+   ```
+
+2. **Records to database** - Every API call's tokens are saved to `tokens.db`
+
+3. **Updates sparkline history** - Builds the visual history shown in the statusline
+
+### Without Statusline
+
+If you prefer not to use the statusline:
+- `/cmap --init` still works - imports all historical data from `~/.claude/projects/`
+- `/cmap` and `/cmap -c` still show your usage
+- You just won't have real-time per-message granularity in the charts
 
 ## Usage
 
