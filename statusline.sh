@@ -1,5 +1,5 @@
 #!/bin/bash
-# ContextViewer - Claude Code Statusline (Compact Block Bars)
+# ContextMap - Claude Code Statusline (Compact Block Bars)
 
 input=$(cat)
 
@@ -30,9 +30,9 @@ fmt() {
     else echo "$((n/1000000))M"; fi
 }
 
-DB="${CV_DB:-$HOME/.config/context-viewer/tokens.db}"
+DB="${CV_DB:-$HOME/.config/contextmap/tokens.db}"
 SESSION="${CV_SESSION:-$(date +%Y%m%d)}"
-HIST_FILE="$HOME/.config/context-viewer/history.txt"
+HIST_FILE="$HOME/.config/contextmap/history.txt"
 
 mkdir -p "$(dirname "$DB")"
 

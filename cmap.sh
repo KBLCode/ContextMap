@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# ContextViewer /cmap - Token usage analytics dashboard
+# ContextMap /cmap - Token usage analytics dashboard
 
-DB="${CV_DB:-$HOME/.config/context-viewer/tokens.db}"
+DB="${CV_DB:-$HOME/.config/contextmap/tokens.db}"
 
 # Colors
 G=$'\033[32m' Y=$'\033[33m' R=$'\033[31m' C=$'\033[36m' M=$'\033[35m' D=$'\033[2m' B=$'\033[1m' X=$'\033[0m'
@@ -93,7 +93,7 @@ sync_chats() {
     sqlite3 "$DB" "ALTER TABLE chats ADD COLUMN cache_write INTEGER DEFAULT 0;" 2>/dev/null
     
     # Track which sessions we've already synced (avoid re-processing)
-    local synced_file="$HOME/.config/context-viewer/.synced_sessions"
+    local synced_file="$HOME/.config/contextmap/.synced_sessions"
     touch "$synced_file" 2>/dev/null
     
     # Find all session JSONL files - use process substitution to avoid subshell

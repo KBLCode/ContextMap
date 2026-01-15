@@ -1,17 +1,17 @@
 #!/bin/bash
-# ContextViewer Installer for Claude Code
+# ContextMap Installer for Claude Code
 
 set -e
 
-REPO="https://raw.githubusercontent.com/KBLCode/ContextViewer/main"
-CONFIG_DIR="$HOME/.config/context-viewer"
+REPO="https://raw.githubusercontent.com/KBLCode/ContextMap/main"
+CONFIG_DIR="$HOME/.config/contextmap"
 COMMANDS_DIR="$HOME/.claude/commands"
 SETTINGS_FILE="$HOME/.claude/settings.json"
 
 echo ""
 echo "╔════════════════════════════════════════════════════════╗"
-echo "║         ContextViewer for Claude Code                  ║"
-echo "║         Token Usage Visualization                      ║"
+echo "║            ContextMap for Claude Code                  ║"
+echo "║            Token Usage Visualization                   ║"
 echo "╚════════════════════════════════════════════════════════╝"
 echo ""
 
@@ -55,7 +55,7 @@ if [ -f "$SETTINGS_FILE" ]; then
         cat >> "$tmp" << 'EOF'
   "statusLine": {
     "type": "command",
-    "command": "~/.config/context-viewer/statusline.sh"
+    "command": "~/.config/contextmap/statusline.sh"
   }
 }
 EOF
@@ -68,7 +68,7 @@ else
 {
   "statusLine": {
     "type": "command",
-    "command": "~/.config/context-viewer/statusline.sh"
+    "command": "~/.config/contextmap/statusline.sh"
   }
 }
 EOF

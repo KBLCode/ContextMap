@@ -1,4 +1,4 @@
-# ContextViewer for Claude Code
+# ContextMap for Claude Code
 
 Real-time token usage visualization with beautiful Unicode charts.
 
@@ -41,7 +41,7 @@ A compact 3-line display showing:
 ╠══════════════════════════════════════════════════════════════════════════════════════╣
 ║ Session  │ Model  │ Title                          │ In     │ Out    │ Cache   │ Cost║
 ╟──────────────────────────────────────────────────────────────────────────────────────╢
-║ 20260115 │ sonnet │ ContextViewer Analytics...     │    91k │   120k │   7.2M  │ $2.30║
+║ 20260115 │ sonnet │ ContextMap Analytics...        │    91k │   120k │   7.2M  │ $2.30║
 ║ 79ec9c50 │ sonnet │ Token Usage Dashboard          │    45k │    89k │   3.1M  │ $1.45║
 ╚══════════════════════════════════════════════════════════════════════════════════════╝
 ```
@@ -64,11 +64,11 @@ A compact 3-line display showing:
 ## Quick Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/KBLCode/ContextViewer/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/KBLCode/ContextMap/main/install.sh | bash
 ```
 
 This will:
-1. Download scripts to `~/.config/context-viewer/`
+1. Download scripts to `~/.config/contextmap/`
 2. Install the `/cmap` slash command
 3. Configure Claude Code's statusline
 4. Import all your historical chat data
@@ -77,28 +77,28 @@ This will:
 
 ```bash
 # Create directories
-mkdir -p ~/.config/context-viewer ~/.claude/commands
+mkdir -p ~/.config/contextmap ~/.claude/commands
 
 # Download scripts
-curl -fsSL https://raw.githubusercontent.com/KBLCode/ContextViewer/main/statusline.sh \
-  -o ~/.config/context-viewer/statusline.sh
-curl -fsSL https://raw.githubusercontent.com/KBLCode/ContextViewer/main/cmap.sh \
-  -o ~/.config/context-viewer/cmap.sh
-curl -fsSL https://raw.githubusercontent.com/KBLCode/ContextViewer/main/cmap.md \
+curl -fsSL https://raw.githubusercontent.com/KBLCode/ContextMap/main/statusline.sh \
+  -o ~/.config/contextmap/statusline.sh
+curl -fsSL https://raw.githubusercontent.com/KBLCode/ContextMap/main/cmap.sh \
+  -o ~/.config/contextmap/cmap.sh
+curl -fsSL https://raw.githubusercontent.com/KBLCode/ContextMap/main/cmap.md \
   -o ~/.claude/commands/cmap.md
 
 # Make executable
-chmod +x ~/.config/context-viewer/*.sh
+chmod +x ~/.config/contextmap/*.sh
 
 # Import historical data
-~/.config/context-viewer/cmap.sh --init
+~/.config/contextmap/cmap.sh --init
 
 # Configure Claude Code (add to ~/.claude/settings.json)
 cat >> ~/.claude/settings.json << 'EOF'
 {
   "statusLine": {
     "type": "command",
-    "command": "~/.config/context-viewer/statusline.sh"
+    "command": "~/.config/contextmap/statusline.sh"
   }
 }
 EOF
@@ -118,7 +118,7 @@ EOF
 ## How It Works
 
 ### Token Extraction
-ContextViewer reads Claude Code's session files from `~/.claude/projects/` and extracts all 4 token types from the JSONL data. This gives accurate cost calculation since cache reads are 90% cheaper than regular input.
+ContextMap reads Claude Code's session files from `~/.claude/projects/` and extracts all 4 token types from the JSONL data. This gives accurate cost calculation since cache reads are 90% cheaper than regular input.
 
 ### Statusline (3 lines)
 1. Model name, session cost, total IN/OUT
@@ -141,7 +141,7 @@ Uses Unicode braille characters (U+2800-U+28FF):
 ## Files
 
 ```
-~/.config/context-viewer/
+~/.config/contextmap/
 ├── statusline.sh    # Statusline script (called by Claude Code)
 ├── cmap.sh          # Analytics dashboard
 ├── history.txt      # Recent IN/OUT values (last 50)
@@ -193,7 +193,7 @@ CREATE TABLE chats(
 ## Uninstall
 
 ```bash
-rm -rf ~/.config/context-viewer
+rm -rf ~/.config/contextmap
 rm ~/.claude/commands/cmap.md
 # Remove statusLine from ~/.claude/settings.json
 ```
