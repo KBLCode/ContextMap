@@ -5,11 +5,10 @@ Real-time token usage visualization with beautiful Unicode charts.
 ## What You Get
 
 ### Statusline (Always Visible)
-```
-Sonnet 4 $2.45 156k↑ 42k↓
-▁▁▁▂▃▄▅▆▇█▇▅▃▂▁▁▂▃▄▅▆▇█▇▅▃▂▁▁▂▃▄▅▆▇█ 12k↑ ▁▁▂▃▄▅▆▇█▇▅▃▂▁▁▂▃▄▅▆▇█▇▅▃▂▁▁▂▃▄▅▆▇█ 5k↓
-████████████░░░░░░░░░░░░░░░░░░░░░░░░ 32% 64k/200k
-```
+<img width="1250" height="104" alt="CleanShot 2026-01-15 at 05 11 04@2x" src="https://github.com/user-attachments/assets/d863dd33-3597-4363-b9f5-2b45498aa30f" />
+<img width="800" height="132" alt="CleanShot 2026-01-15 at 05 11 28@2x" src="https://github.com/user-attachments/assets/bcf39019-b6e2-4c04-81db-0876ce52dfe9" />
+
+
 
 ### `/cmap` Command (Full Analytics)
 ```
