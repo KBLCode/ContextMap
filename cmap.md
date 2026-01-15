@@ -4,10 +4,10 @@ allowed-tools: ["Bash"]
 argument-hint: "[-c [N]] [--init] [-h]"
 ---
 
-Run the ContextViewer analytics dashboard:
+Run the ContextMap analytics dashboard:
 
 ```bash
-~/.config/context-viewer/cmap.sh $ARGUMENTS
+~/.config/contextmap/cmap.sh $ARGUMENTS
 ```
 
 Display the output directly to the user.
@@ -38,7 +38,7 @@ Shows all tracked chats with:
 
 ## Token Types
 
-ContextViewer tracks all 4 token types for accurate cost calculation:
+ContextMap tracks all 4 token types for accurate cost calculation:
 - `input_tokens` - Fresh input (full price)
 - `cache_creation_input_tokens` - Cache write (1.25x price)
 - `cache_read_input_tokens` - Cache read (90% cheaper!)
