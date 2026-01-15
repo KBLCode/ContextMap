@@ -75,6 +75,11 @@ EOF
     echo "  ✓ Created settings.json with statusLine"
 fi
 
+# Import historical data
+echo ""
+echo "→ Importing historical chat data..."
+"$CONFIG_DIR/cmap.sh" --init
+
 echo ""
 echo "════════════════════════════════════════════════════════"
 echo ""
@@ -89,6 +94,7 @@ echo ""
 echo "  Usage:"
 echo "    • Statusline appears automatically in Claude Code"
 echo "    • Type /cmap to view detailed token statistics"
+echo "    • Type /cmap -c to see chat history with costs"
 echo ""
 echo "════════════════════════════════════════════════════════"
 echo ""

@@ -93,8 +93,29 @@ done
 
 # Record to DB
 if [ "${CV_RECORD:-1}" = "1" ] && { [ $IN -gt 0 ] || [ $OUT -gt 0 ]; }; then
-    [ ! -f "$DB" ] && sqlite3 "$DB" "CREATE TABLE IF NOT EXISTS tokens(id INTEGER PRIMARY KEY,ts INTEGER,session TEXT,input INTEGER,output INTEGER,cache_read INTEGER,cache_write INTEGER,ctx_pct INTEGER,model TEXT);" 2>/dev/null
-    sqlite3 "$DB" "INSERT INTO tokens(ts,session,input,output,cache_read,cache_write,ctx_pct,model) VALUES($(date +%s),'$SESSION',$IN,$OUT,$CREAD,$CWRITE,$PCT,'$MODEL_ID');" 2>/dev/null
+    NOW=$(date +%s)
+    
+    # Create tables if needed
+    if [ ! -f "$DB" ]; then
+        sqlite3 "$DB" "CREATE TABLE IF NOT EXISTS tokens(id INTEGER PRIMARY KEY,ts INTEGER,session TEXT,input INTEGER,output INTEGER,cache_read INTEGER,cache_write INTEGER,ctx_pct INTEGER,model TEXT);" 2>/dev/null
+        sqlite3 "$DB" "CREATE TABLE IF NOT EXISTS chats(session TEXT PRIMARY KEY,title TEXT,model TEXT,ctx_size INTEGER,first_ts INTEGER,last_ts INTEGER,total_input INTEGER,total_output INTEGER);" 2>/dev/null
+    fi
+    
+    # Ensure chats table exists (for existing DBs)
+    sqlite3 "$DB" "CREATE TABLE IF NOT EXISTS chats(session TEXT PRIMARY KEY,title TEXT,model TEXT,ctx_size INTEGER,first_ts INTEGER,last_ts INTEGER,total_input INTEGER,total_output INTEGER);" 2>/dev/null
+    
+    # Insert token record
+    sqlite3 "$DB" "INSERT INTO tokens(ts,session,input,output,cache_read,cache_write,ctx_pct,model) VALUES($NOW,'$SESSION',$IN,$OUT,$CREAD,$CWRITE,$PCT,'$MODEL_ID');" 2>/dev/null
+    
+    # Upsert chat record
+    sqlite3 "$DB" "INSERT INTO chats(session,title,model,ctx_size,first_ts,last_ts,total_input,total_output) 
+        VALUES('$SESSION','','$MODEL_ID',$CTX_SIZE,$NOW,$NOW,$IN,$OUT)
+        ON CONFLICT(session) DO UPDATE SET 
+            model=CASE WHEN excluded.model != '' THEN excluded.model ELSE model END,
+            ctx_size=CASE WHEN excluded.ctx_size > 0 THEN excluded.ctx_size ELSE ctx_size END,
+            last_ts=excluded.last_ts,
+            total_input=total_input+excluded.total_input,
+            total_output=total_output+excluded.total_output;" 2>/dev/null
 fi
 
 # Output - 3 compact lines
